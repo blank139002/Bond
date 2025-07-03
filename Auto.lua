@@ -2,7 +2,7 @@ local CreateParty = game:GetService("ReplicatedStorage").Shared.Network.RemoteEv
 local HRP = game.Players.LocalPlayer.Character.HumanoidRootPart
 local TeleportService = game:GetService("TeleportService")
 local FoundLobby = false
-local PlaceId = game.PlaceId
+local CurrentPlaceId = game.PlaceId
 
 while not FoundLobby do
     print("Finding Lobby...")
@@ -23,32 +23,36 @@ while not FoundLobby do
             CreateParty:FireServer(unpack(args))
             print("Party creation requested...")
 
-            -- Проверка создания лобби
+            -- Сохраняем текущий PlaceId после создания лобби
+            local initialPlaceId = game.PlaceId
             local elapsedTime = 0
-            local lobbyCreated = false
+
+            -- Ожидание 20 секунд и проверка PlaceId
             while elapsedTime < 20 do
                 task.wait(1)
                 elapsedTime = elapsedTime + 1
-                -- Проверяем, изменился ли статус (предполагаем, что статус меняется при создании лобби)
+                -- Проверяем, изменился ли PlaceId
+                if game.PlaceId ~= initialPlaceId then
+                    print("PlaceId changed to " .. game.PlaceId .. ", no server hop needed.")
+                    return -- Прерываем, если PlaceId изменился
+                end
+                -- Проверяем статус лобби для отладки
                 if v.BillboardGui and v.BillboardGui:FindFirstChild("StatusLabel") then
                     local status = v.BillboardGui.StatusLabel.Text
                     if status ~= "Waiting for players..." then
-                        print("Lobby created! Status: " .. status)
-                        lobbyCreated = true
-                        break
+                        print("Lobby status changed: " .. status)
                     end
                 else
-                    print("BillboardGui or StatusLabel missing, assuming lobby creation failed.")
-                    break
+                    print("BillboardGui or StatusLabel missing.")
                 end
             end
 
-            -- Если лобби не создалось через 20 секунд, хопаем сервер
-            if not lobbyCreated then
-                print("Lobby not created after 20 seconds, initiating server hop...")
-                TeleportService:Teleport(PlaceId, game.Players.LocalPlayer)
+            -- Если PlaceId не изменился через 20 секунд, хопаем сервер
+            if game.PlaceId == initialPlaceId then
+                print("PlaceId did not change after 20 seconds, initiating server hop...")
+                TeleportService:Teleport(CurrentPlaceId, game.Players.LocalPlayer)
             else
-                print("Lobby successfully created, no server hop needed.")
+                print("PlaceId changed, no server hop needed.")
             end
             break
         end
